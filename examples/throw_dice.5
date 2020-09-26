@@ -1,0 +1,13 @@
+: throw_dice
+  # Make a vector of the form [6 6 6 ... 6].
+  6 over reshape
+
+  # Throw dice n times, retain integer part and make sure
+  # the results are between 1 and 6.
+  ? int 1 +
+
+  # Sum over all results and divide by the number of values.
+  '+ reduce swap /
+;
+
+100 throw_dice .

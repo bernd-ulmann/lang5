@@ -1,0 +1,16 @@
+: fib           # Define a word named fib
+    dup 2 <     # Handle first
+    if          # two sequence
+        drop 1  # elements.
+    else        # All other
+        dup     # elements end
+        1 - fib # here.
+        swap 2 - fib
+        +
+    then
+;
+
+0 do # Make a loop running from 0 to 10
+    dup fib .  1 + 
+    dup 10 > if break then
+loop

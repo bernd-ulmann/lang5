@@ -1,0 +1,26 @@
+: prime_list
+  1 - iota 2 +   # Generate a vector [2 .. TOS]
+  dup dup dup    # Make sure there are four identical vectors.
+  '* outer       # Outer product of the top two vectors.
+  swap in        # Generate a selection vector based on vector 
+                 # and matrix.
+  not            # Invert the elements of this vector
+  select         # Use this vector to select elements from 
+                 # the vector [2 .. TOS].
+;
+
+do
+  "Please enter a number between 2 and 100: " .
+  read
+  dup 2 < if
+    "\tToo small!\n" . drop
+  else
+    dup 100 > if
+      "\tToo large!\n" . drop
+    else
+      break
+    then
+  then
+loop
+
+prime_list .

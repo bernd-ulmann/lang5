@@ -1,0 +1,5 @@
+: p(*)
+  dup dup 1 - iota 1 + dup rot swap
+  % not select '+ reduce ==
+;
+500 iota 1 + dup p select .

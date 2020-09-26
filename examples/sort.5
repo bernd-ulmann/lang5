@@ -1,0 +1,7 @@
+: get_upper(*) '; split expand drop swap drop ;
+: get_lower(*) '; split expand drop drop ;
+
+'sort.data slurp dup
+get_lower swap get_upper
+grade swap drop subscript
+.

@@ -1,0 +1,705 @@
+#
+#  health_check.5 is a collection of simple test routines written entirely 
+# in lang5. This program can be used to perform a quick health check of the
+# interpreter.
+#  health_check.5 must be run as the first program since it needs a system
+# without any variables defined!
+#  Since it is impossible to show the correct operation of a system from 
+# within that particular system (cf. Goedel :-) ) this test program can 
+# only give an indication that nothing really horrible has been broken 
+# although it is very well possible that some errors go undetected.
+#  Assumptions:
+#   - Basic stack operation (pushing values) works.
+#   - Operators + - * / % ** work.
+#
+# To do list:
+#  -Complete tests.
+#  -Test neutral elements of operators involved in reduce or outer.
+
+0 '_skip_builtin_tests set
+0 '_skip_stdlib_tests  set
+0 '_skip_mathlib_tests set
+1 '_skip_stress_tests  set
+
+"Starting health check.\n" .
+
+###########################################################################
+#  The following list is just for me (Bernd) to keep track of what has 
+# already been done and what is left to do. :-)
+###########################################################################
+
+# Built-in functions and operators which are still untested:
+# system
+# close
+# eof
+# fin
+# fout
+# in
+# load
+# open
+# outer
+# read
+# scatter
+# unlink
+
+: stack_empty?
+  depth 0 != if .. "Stack is not empty!" panic then
+;
+
+###########################################################################
+# Test of built-ins:
+###########################################################################
+_skip_builtin_tests not if
+  "Testing built in functions and operators:\n" .
+  #
+  "\tTesting if-else.\n" .
+  0 if    "if-else 0: if failed\n" panic then
+  0 if    "if-else 1: if failed\n" panic else 1 then
+  if else "if-else 2: else failed\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  # Testing comparisons - if basic operations are OK, we assume that the
+  # rest works, too (since the comparison operators are just borrowed from 
+  # the underlying Perl interpreter):
+  "\tTesting comparisons.\n" .
+  1 2 > if  "comparisons 0: failed\n" panic then
+  2 1 < if  "comparisons 1: failed\n" panic then
+  1 2 == if "comparisons 2: failed\n" panic then
+  1 1 != if "comparisons 3: failed\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting dup.\n" .
+  1 dup
+  if else "dup 0: failed\n" panic then
+  if else "dup 1: failed\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting over.\n" .
+  1 2 over
+  1 != if "over 0: failed\n" panic then
+  2 != if "over 1: failed\n" panic then
+  1 != if "over 2: failed\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting rot.\n" .
+  1 2 3 dup 3 != if "rot 0: failed\n" panic then
+  rot dup 1   != if "rot 1: failed\n" panic then
+  rot dup 2   != if "rot 2: failed\n" panic then
+  drop drop drop
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting swap.\n" .
+  1 2 over over swap
+  < if "swap 0: failed" then
+  > if "swap 1: failed" then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting depth and drop.\n" .
+  depth 1 depth swap drop swap -
+  2 != if "depth 0: failed\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting variables and del.\n" .
+  0
+  314 'mypi set
+  if "variables 0: failed\n" panic then
+  mypi 314 != if "variables 1: failed\n" panic then
+  'mypi del
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting do-loop.\n" .
+  "\t\tSingle loop.\n" .
+  0 do
+    1 + dup 1000 == if break then
+  loop
+  1000 != if "do-loop 0: failed\n" panic then
+  "\t\tNested loops.\n" .
+  0 'counter set
+  0 do
+    1 + dup 20 == if break then
+    0 do
+      1 + dup 20 == if break then
+      0 do
+        1 + dup 20 == if break then
+      loop
+      counter + 'counter set
+    loop drop
+  loop drop
+  counter 7220 != if "do-loop 1: failed\n" panic then
+  'counter del
+  stack_empty?
+  #------------------------------------------------------------------------
+  #  This test should belong to the tests of the words defined in mathlib.5 
+  # but since having an abs word is essential for some of the following 
+  # tests it has been moved to this location.
+  "\tTesting abs.\n" .
+  2 abs 2 !=  if "abs 0: failed\n" panic then
+  -2 abs 2 != if "abs 1: failed\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting int.\n" .
+  1.234 dup
+  1.234 != if "int 0: failed\n" panic then
+  int 1 != if "int 1: failed\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting neg.\n" .
+  2 neg -2 != if "neg 0: failed\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting not.\n" .
+  2 not if      "not 0: failed\n" panic then
+  0 not if else "not 1: failed\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting sin/cos/tan.\n" .
+  3.1415926535 sin abs eps >      if "sin 0: failed\n" panic then
+  1.5707963267 sin 1 - abs eps >  if "sin 1: failed\n" panic then
+  3.1415926535 cos -1 - abs eps > if "cos 0: failed\n" panic then
+  1.5707963267 cos abs eps >      if "cos 1: failed\n" panic then
+  3.1415926535 tan abs eps >      if "tan 0: failed\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting sqrt.\n" .
+  4 sqrt 2 != if "sqrt 0: failed\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting eval.\n" .
+  780 'x set
+  'x eval 780 != if "eval 0: failed\n" panic then
+  'x del
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting length.\n" .
+  [1 2 3 4] length 4 != if "length 0: failed\n" panic then drop
+  [] length if "length 1: failed\n" panic then drop
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting vlist.\n" .
+  vlist length swap drop
+  1 'x set 2 'y set
+  vlist length swap drop swap - 2 != if "vlist 0: failed\n" panic then
+  'x 'y del del
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting iota.\n" .
+  0 iota length if "iota 0: failed\n" panic then drop
+  5 iota length 5 != if "iota 1: failed\n" panic then drop
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting word definition, wlist and del.\n" .
+  wlist length swap drop
+  : _test_word dup dup * * ;
+  wlist length swap drop swap - 1 != 
+    if "word definition 0: failed\n" panic then
+  2 _test_word 8 != if "word definition 1: failed\n" panic then
+  wlist length swap drop '_test_word del wlist length swap drop -
+  1 != if "word definition 2: failed\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting type.\n" .
+  'depth type 'F ne             if "type 0: failed\n" panic then drop
+  '? type 'U ne                 if "type 1: failed\n" panic then drop
+  '+ type 'B ne                 if "type 2: failed\n" panic then drop
+  '. type 'F ne                 if "type 3: failed\n" panic then drop
+  1 'x set 'x type 'V ne        if "type 4: failed\n" panic then drop 
+    'x del
+  : _test 0 ; '_test type 'F ne if "type 5: failed\n" panic then drop 
+    '_test del
+  1 type 'S ne                  if "type 6: failed\n" panic then drop
+  [1] type 'A ne                if "type 7: failed\n" panic then drop
+  [1] 'test dress type 'D ne    if "type 8: failed\n" panic then drop
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting ver.\n" .
+  ver type 'S ne if "ver 0: failed\n" panic then drop
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting reduce.\n" .
+  100 iota 1 + '+ reduce 5050 ne if "reduce 0: failed\n" panic then
+  [[1 2 3] [4 5 6] [7 8 9]] '+ reduce
+  [12 15 18] != '|| reduce       
+    if "reduce: two dimensional test failed!\n" panic then
+  [] '+  reduce                  if "reduce 2: failed\n" panic then
+  [] '-  reduce                  if "reduce 3: failed\n" panic then
+  [] '|| reduce                  if "reduce 4: failed\n" panic then
+  [] '*  reduce 1 !=             if "reduce 6: failed\n" panic then
+  [] '/  reduce 1 !=             if "reduce 7: failed\n" panic then
+  [] '&& reduce                  if "reduce 8: failed\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting ?.\n" .
+  10 ? type 'S ne if "? 0: failed\n" panic then drop
+  1000 do
+    dup 1 < if break then
+    dup ? over over
+      < if "? 1: failed\n" panic then
+    0 < if "? 2: failed\n" panic then
+    1 -
+  loop drop
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting split.\n" .
+  "1 2 3 4" " " split '+ reduce 10 != if "split 0: failed\n" panic then
+  "" " "  split length                if "split 1: failed\n" panic then 
+    drop
+  "1" " " split length 1 !=           if "split 2: failed\n" panic then 
+    drop
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting join.\n" .
+  [1 3] 2 join 123 !=  if "join 0: failed\n" panic then
+  [] "test" join "" ne if "join 1: failed\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting compress.\n" .
+  1 2 3 3 compress [1 2 3] == '+ reduce 3 !=
+    if "compress 0: failed\n" panic then
+  1 0 compress
+  swap 1   != if "compress 1: failed\n" panic then
+  length      if "compress 2: failed\n" panic then drop
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting concat.\n" .
+  ['bla 'blub] "\n" concat 
+  ["bla\n" "blub\n"] eq '+ reduce 
+  2 != if "concat failed\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting expand.\n" .
+  depth [] expand depth rot -
+    if else "expand 0: failed\n" panic then
+  if "expand 1: failed\n" panic then
+  [1 2] expand
+  2 != if "expand 2: failed\n" panic then
+  2 != if "expand 3: failed\n" panic then
+  1 != if "expand 4: failed\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting grade.\n" .
+  [1 2 3] grade [0 1 2] == '+ reduce 3 != 
+    if "grade 0: failed\n" panic then drop
+  [3 2 1] grade [2 1 0] == '+ reduce 3 != 
+    if "grade 1: failed\n" panic then drop
+  [] grade length if "grade 2: failed\n" panic then  drop  drop
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting reverse.\n" .
+  [1 2 3] reverse [3 2 1] == '+ reduce 3 != 
+    if "reverse 0: failed\n" panic then
+  [] reverse length if "reverse 1: failed\n" panic then drop
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting remove.\n" .
+  [3 1 4 1 5] [1 3] remove '+ reduce 12 != 
+    if "remove 0: failed\n" panic then
+  [1 2 3]     []    remove '+ reduce 6  != 
+    if "remove 1: failed\n" panic then
+  []          []    remove length          
+    if "remove 2: failed\n" panic then 
+    drop
+  []          [1 3] remove length          
+    if "remove 3: failed\n" panic then 
+    drop
+  [1 [2 3 4 5 6] 3 4 5] [[1 4]] remove '+ reduce '+ reduce 66 != 
+  if "remove 4: failed\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting robustness of variables.\n" .
+  [1 2 3] 'x set
+  x 0 remove drop x [1 2 3] == '+ reduce 3 != 
+  if "Variable was not robust!\n" panic then
+  'x del
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting robustness of words.\n" .
+  : x [1 2 3] ;
+  x 0 remove drop x [1 2 3] == '+ reduce 3 !=
+  if "Word was not robust!\n" panic then 
+  'x del
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting _roll\n" .
+  [1 2 3 4 5 6] expand drop 6 3 _roll 6 compress [4 5 6 1 2 3] 
+    == '+ reduce 6 != if "_roll 0: failed\n" panic then
+  1 2 3 0 0 _roll 3 compress [1 2 3] == '+ reduce 3 !=
+    if "_roll 1: failed\n" panic then
+  1 2 3 1 0 _roll 3 compress [1 2 3] == '+ reduce 3 !=
+    if "_roll 2: failed\n" panic then
+  1 2 3 0 1 _roll 3 compress [1 2 3] == '+ reduce 3 !=
+    if "_roll 3: failed\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting & | and ^.\n" .
+  1 2 &      if "&|^ 0: failed\n" panic then
+  1 2 | 3 != if "&|^ 1: failed\n" panic then
+  6 3 ^ 5 != if "&|^ 2: failed\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting && and ||.\n" .
+  2 1 && 1 != if "&&|| 0: failed\n" panic then
+  2 1 || 2 != if "&&|| 1: failed\n" panic then
+  1 2 && 2 != if "&&|| 2: failed\n" panic then
+  1 2 || 1 != if "&&|| 2: failed\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting index.\n" .
+  10 iota [] index length if "index 0: failed!\n" panic then drop
+  10 iota [3 2 1] index [[3][2][1]] == '&& dreduce
+    not if "index 1: failed!\n" panic then
+  [] [1 2 3] index shape [3 0] == '&& reduce 
+    not if "index 2: failed!\n" panic then drop
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting select.\n" .
+  9 iota [] select length if "select 0: failed!\n" panic then drop
+  9 iota [0 0 0 0 0 0 0 0 0] select length 
+    if "select 1: failed!\n" panic then drop
+  9 iota [0 0 0 0 0 0 0 0 0 1] select length 
+    if "select 2: failed!\n" panic then drop
+  9 iota [1 0 1 0] select [0 2] == '&& reduce 
+    not if "select 3: failed!\n" panic then 
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting execute.\n" .
+  "" execute depth if "execute 0: failed!\n" panic then
+  "2 dup * 4 ==" execute not if "execute 1: failed!\n" panic then
+  [2 "dup" "*"] execute 4 == not if "execute 2: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting dump.\n" .
+  : test . ; 'test dump ": test\n  .\n;\n\n" eq 
+    not if "dump 0: failed!\n" panic then
+  'test del # Clean up
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting spread.\n" .
+  [] '+ spread 0 != if "spread 0: failed!\n" panic then
+  [] '* spread 1 != if "spread 1: failed!\n" panic then
+  [1] '+ spread expand drop 1 != if "spread 2: failed!\n" panic then
+  [1] '* spread expand drop 1 != if "spread 3: failed!\n" panic then
+  5 iota '+ spread [0 1 3 6 10] == '&& reduce 
+    not if "spread 4: failed!\n" panic then
+  5 iota 1 + '* spread [1 2 6 24 120] == '&& reduce
+    not if "spread 5: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting defined.\n" .
+  undef defined                 if "defined 0: failed!\n" panic then
+  1     defined not             if "defined 1: failed!\n" panic then
+  []    defined length          if "defined 2: failed!\n" panic then drop
+  [1]   defined expand drop not if "defined 3: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting subscript.\n" .
+  [] [] subscript length if "subscript 0: failed!\n" panic then drop
+  ['a 'b 'c 'd] [1 3] subscript ['b 'd] eq '&& reduce 
+    not if "subscript 1: failed!\n" panic then
+  ['a 'b 'c 'd] [5 1] subscript [undef 'b] eq '&& reduce 
+    not if "subscript 2: failed!\n" panic then
+  5 iota reverse [[1]] subscript expand drop 3 ==
+    not if "subscript 3: failed!\n" panic then
+  9 iota [3 3] reshape [[0 0][2 2]] subscript [0 8] == '&& reduce 
+    not if "subscript 4: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting scatter.\n" .
+  
+  stack_empty?
+  #------------------------------------------------------------------------
+else
+  "Skipping built-in tests.\n" .
+then
+###########################################################################
+# Testing words defined in stdlib.5
+###########################################################################
+_skip_stdlib_tests not if
+  "Testing words defines in stdlib.5:\n" .
+  #
+  "\tTesting append.\n" .
+  [1 2] [3 4] append [1 2 3 4] == '+ reduce 4 ne
+    if "append 0: failed!\n" panic then
+  [1 2] 3 append [1 2 3] == '+ reduce 3 ne
+    if "append 1: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting 2dup.\n" .
+  1 2 2dup
+  2 != if "2dup 0: failed\n" panic then
+  1 != if "2dup 1: failed\n" panic then
+  2 != if "2dup 2: failed\n" panic then
+  1 != if "2dup 3: failed\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting clear.\n" .
+  1 2 3 clear depth if "depth: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting dreduce.\n" .
+  9 iota 1 + [3 3] reshape '+ dreduce 45 != if
+    "dreduce: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting extract.\n" .
+  ['a 'b 'c] 1 extract
+  'b ne if "extract 0: failed!\n" panic then
+  ['a 'c] ne '|| reduce if "extract 1: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting ndrop.\n" .
+  1 2 3 2 ndrop 1 != if "ndrop: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting pick.\n" .
+  10 iota 1 + expand drop 5 pick
+  5 != if "pick 0: failed!\n" panic then
+  10 iota == '|| reduce if "pick 1: failed!\n" panic then
+  clear
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting roll.\n" .
+  10 iota expand roll 10 compress [1 2 3 4 5 6 7 8 9 0] !=
+  '|| reduce if "roll: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting rot.\n" .
+  1 2 3 rot 3 compress [2 3 1] != '|| reduce if "roll: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting uc.\n" .
+  'abcd uc 'ABCD ne if "uc: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting lc.\n" .
+  'ABCD lc 'abcd ne if "lc: failed!\n" panic then
+  stack_empty?
+else
+  "Skipping stdlib tests.\n" .
+then
+#
+#--------------------------------------------------------------------------
+###########################################################################
+# Testing words defined in mathlib.5
+###########################################################################
+_skip_mathlib_tests not if
+  "Testing words defined in mathlib.5:\n" .
+  #
+  "\tTesting predefined variables.\n" .
+  pi 3.1415926535 - eps abs > if "var 0: failed!\n" panic then
+  e  2.7182818284 - eps abs > if "var 1: failes!\n" panic then
+  #------------------------------------------------------------------------
+  "\tTesting !.\n" .
+  0 ! 1   != if "! 0: failed\n" panic then
+  1 ! 1   != if "! 1: failed\n" panic then
+  5 ! 120 != if "! 2: failed\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting choose.\n" .
+  6 3 choose 20 != if "choose: failed!\n" panic then
+  #------------------------------------------------------------------------
+  "\tTestcing corr.\n" .
+  [413 325 387 571 1025 1579 2109 1291 862 790 526 467]
+  [0 -9 0 11 14 21 27 17 8 12 6 -1]
+  corr 0.918615260638781 - eps > if "corr: failed!\n" panic then
+  #------------------------------------------------------------------------
+  "\tTesting max.\n" .
+  2 3 max 3 != if "max 0: failed!\n" panic then
+  [1 2] [2 1] max [2 2] == '+ reduce 2 != if "max 1: failed!\n" panic then
+  #------------------------------------------------------------------------
+  "\tTesting min.\n" .
+  2 3 min 2 != if "min 0: failed!\n" panic then
+  [1 2] [2 1] min [1 1] == '+ reduce 2 != if "min 1: failed!\n" panic then
+  #------------------------------------------------------------------------
+  "\tTesting absolute value.\n" .
+  2  abs 2 != if "abs 0: failed!\n" panic then
+  -2 abs 2 != if "abs 1: failed!\n" panic then
+  [-1 -2 -3] abs '+ reduce 6 != if "abs 2: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting amean.\n" .
+  [] amean if "amean 0: failed!\n" panic then
+  [1] amean 1 != if "amean 1: failed!\n" panic then
+  [1 2 3 4] amean 2.5 != if "amean 2: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting cmean.\n" .
+  [] cmean if "cmean 0: failed!\n" panic then
+  [1] cmean 1 != if "cmean 1: failed!\n" panic then
+  [3 3 3] cmean 3 != if "cmean 2: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting gmean.\n" .
+  [] gmean if "gmean 0: failed!\n" panic then
+  [1] gmean 1 != if "gmean 1: failed!\n" panic then
+  [3 3 3] gmean 3 != if "gmean 2: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting hmean.\n" .
+  [] hmean if "hmean 0: failed!\n" panic then
+  [1] hmean 1 != if "hmean 1: failed!\n" panic then
+  [3 3 3] hmean 3 != if "hmean 2: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting hoelder.\n" .
+  [] 1 hoelder if "hoelder 0: failed!\n" panic then
+  [3] 1 hoelder 3 != if "hoelder 1: failed!\n" panic then
+  10 iota 1 + 5 hoelder 7.39281175553841 - abs eps > if
+    "hoelder 2: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting median.\n" .
+  [] median if "median 0: failed!\n" panic then
+  [2] median 2 != if "median 1: failed!\n" panic then
+  [1 2 3] median 2 != if "median 2: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting qmean.\n" .
+  [] qmean if "qmean 0: failed!\n" panic then
+  [3] qmean 3 != if "qmean 1: failed!\n" panic then
+  10 iota 1 + qmean 6.20483682299543 - abs eps > if
+    "qmean 2: failed!\n" panic then
+  stack_empty?
+  [1 2 3 4] median 2.5 != if "median 3: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+#  "\tTesting distinct.\n" .
+#  [] distinct length if "distinct 0: failed!\n" panic then drop
+#  4 iota 's dress distinct strip 4 iota == '&& reduce not 
+#    if "distinct 1: failed!\n" panic then
+#  [3 1 4 1 5 9 2 6 5 3 5](s) distinct strip [1 2 3 4 5 6 9] == '&& reduce 
+#    not if "distinct 2: failed!\n" panic then
+#  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting intersect.\n" .
+  [1 2 3](s) [2 3 4](s) intersect strip [2 3] eq '+ reduce 
+    2 != if "intersect 0: failed!\n" panic then
+  [1 2 3](s) [](s) intersect strip length 
+    0 > if "intersect 1: failed!\n" panic then
+  drop
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting union.\n" .
+  [1 2](s) [3 4](s) union strip [1 2 3 4] eq '+ reduce
+    4 != if "union 0: failed!\n" panic then
+  [1 2](s) [](s) union strip [1 2] eq '+ reduce
+    2 != if "union 1: failed!\n" panic then
+  #------------------------------------------------------------------------
+  "\tTesting subset.\n" .
+  [](s) [](s) subset if "subset 0: failed!\n" panic then
+  [1 2 3](s) [1 3](s) subset not if "subset 1: failed!\n" panic then
+  [1 3](s) [1 2 3](s) subset if "subset 2: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting * for matrix/vector-multiplication.\n" .
+  9 iota 1 + [3 3] reshape 'm dress 3 iota 10 + 'v dress * strip
+  [68 167 266] == '&& reduce not if "*(m,v): failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting * for matrix/matrix-multiplication.\n" .
+  9 iota 1 + [3 3] reshape dup 10 swap - 'm dress swap 'm dress *
+  strip [[90 114 138][54 69 84][18 24 30]] == '&& dreduce
+  not if panic "*(m,m): failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting idmatrix.\n" .
+  0 idmatrix strip shape '+ reduce 0  != if panic "0 idmatrix failed!\n" then
+  1 idmatrix strip shape '+ reduce 2  != if panic "1 idmatrix failed!\n" then
+  5 idmatrix strip shape '+ reduce 10 != if panic "10 idmatrix failed!\n" then
+  drop drop drop stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting prime.\n" .
+  : prime_list
+    iota 1 + 0 remove dup dup dup '* outer swap in not select
+  ;
+  100 prime_list
+  99 iota 2 + dup prime select
+  == '&& reduce not if "prime: failed!\n" panic then
+  'prime_list del
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting gcd.\n" .
+  27 12 gcd 3 != if "gcd: failed!\n" panic then
+  #------------------------------------------------------------------------
+  "\tTesting h2d.\n" .
+  'ABCD h2d dup 43981 != if "h2d 0: failed!\n" panic then
+  'abcd h2d           != if "h2d 1: failed!\n" panic then
+  #------------------------------------------------------------------------
+  "\tTesting complex ==.\n" .
+  [1 2](c) [1 2](c) == not if "complex ==: 0 failed!\n" panic then
+  [1 2](c) [1 3](c) ==     if "complex ==: 1 failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting complex !=.\n" .
+  [1 2](c) [1 2](c) !=     if "complex !=: 0 failed!\n" panic then
+  [1 2](c) [1 3](c) != not if "complex !=: 1 failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting complex abs.\n" .
+  [1 1](c) abs 2 sqrt - eps > if "complex abs: failed!\n" panic then
+  #------------------------------------------------------------------------
+  "\tTesting complex negation.\n" .
+  [1 2](c) neg [1 -2](c) == not if "complex neg: 0 failed!\n" panic then
+  [1 2](c) neg [1 2](c) ==      if "complex neg: 1 failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting complex +.\n" .
+  [1 2](c) [3 4](c) + [4 6](c) == not if "complex +: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting complex -.\n" .
+  [1 2](c) [3 4](c) - [-2 -2](c) == not 
+    if "complex -: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting complex *.\n" .
+  [1 2](c) [3 4](c) * [-5 10](c) == not 
+    if "complex *: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting complex /.\n" .
+  [1 2](c) [3 4](c) / [.44 .08](c) == not 
+    if "complex /: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting re.\n" .
+  [1 2](c) re 1 != if "re: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting im.\n" .
+  [1 2](c) im 2 != if "re: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting polar.\n" .
+  [1 1](c) polar strip [1.4142135623731 .785398163397448] - abs 
+    '+ reduce eps > if "polar: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting complex.\n" .
+  [1 2](c) polar complex [1 2](c) != if "complex: failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting polar ==.\n" .
+  [1 2](p) [1 2](p) == not if "polar ==: 0 failed!\n" panic then
+  [1 2](p) [1 3](p) ==     if "polar ==: 1 failed!\n" panic then
+  stack_empty?
+  #------------------------------------------------------------------------
+  "\tTesting polar !=.\n" .
+  [1 2](p) [1 2](p) !=     if "polar !=: 0 failed!\n" panic then
+  [1 2](p) [1 3](p) != not if "polar !=: 1 failed!\n" panic then
+  stack_empty?
+else
+  "Skipping mathlib tests.\n" .
+then
+###########################################################################
+# Various stress tests:
+###########################################################################
+_skip_stress_tests not if
+  "Performing some stress tests.\n" .
+  #
+  "\tGenerating primes with large matrices.\n" .
+  : _prime_list 1 - iota 2 + dup dup dup '* outer swap in not select ;
+  500 _prime_list length 95 != if "stress 0: failed\n" panic then drop
+  stack_empty?
+else
+  "Skipping stress tests.\n" .
+then

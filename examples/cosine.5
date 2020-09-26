@@ -1,0 +1,24 @@
+#
+# Approximation of the cosine function using a MacLaurin 
+# series of 11 terms. The argument is expected on the TOS.
+#
+: mc_cos 
+    # Save x and the number of MacLaurin terms for future use.
+    'x set 9 'terms set
+
+    # Generate a vector containing x ** (2 * i).
+    terms iota dup defined x * swap 2 * dup 'v2i set **
+
+    # Generate a vector containing (2 * i)! and divide the 
+    # previous vector.
+    v2i ! /
+
+    # Generate a vector of the form [1 -1 1 -1 1 ...].
+    terms iota 1 + 2 % 2 * 1 -
+
+    # Multiply both vectors and compute the sum of the 
+    # result's elements.
+    * '+ reduce
+;
+
+3.14159265 mc_cos .

@@ -1,0 +1,148 @@
+###
+### stdlib.5, the standard library for 5.
+###
+### Internal variables are always prefixed by '_<word>' to avoid collisions
+### between different words.
+###
+
+"loading stdlib.5:  " .
+
+#==========================================================================
+"Const.." .
+: STDIN  0 ;
+: STDOUT 1 ;
+: STDERR 2 ;
+
+#==========================================================================
+"Misc.." . # Housekeeping words.
+
+# Stack pretty printer (non-desctructive).
+: .s
+  depth 0 == if "Stack is empty!\n" . break then
+  "vvvvvvvvvvvvvvvvvvvv Begin of stack listing vvvvvvvvvvvvvvvvvvvv\n" .
+  "Stack contents (TOS at bottom):\n" .
+  depth compress dup
+  do
+    length 0 == if break then
+    0 extract .
+  loop
+  drop expand drop
+  "\n^^^^^^^^^^^^^^^^^^^^^ End of stack listing ^^^^^^^^^^^^^^^^^^^^^\n" .
+;
+
+# Print a list of all variables known to the interpreter.
+: .v
+  "Variables:\n" .
+  vlist                          # Get list of all variable names.
+  do                             # Process the list.
+   length 0 == if break then     # Anything left to print?
+   0 extract                     # Get name to be printed.
+   dup "\t--->\t"                # Prepare string to be printed.
+   rot eval                      # Get value of variable.
+   "\n" 4 compress "'" join .      # Make string and print line.
+  loop drop
+;
+
+# CLear Screen (assuming a VT100 terminal):
+: cls 27 chr "[2J" 27 chr "[;H" 4 compress "" join . ;
+
+# explain a word.
+: explain dump . ;
+
+# Save the current workspace - expects destination filename on TOS.
+: save
+  : uxplain(*) explain ;
+
+  depth 1 < if "save: Not enough elements on stack!\n" panic then
+  type 'S ne if "save: scalar as filename expected!\n" . break then
+  "Saving workspace to " over ": " 3 compress "" join .
+  '> swap open '_save_destination set
+  _save_destination fout
+  wlist vlist append uxplain drop
+  STDOUT fout
+  _save_destination close 
+  "done\n" .
+;
+
+# Read a file (the filename is expected to be in TOS) and create an array
+# containing one record of this file per element.
+: slurp
+  depth 1 < if "slurp: Not enough elements on stack!\n" panic then
+  type 'S ne if "slurtp: Scalar as filename expected!\n" panic then
+  '< swap open '__slurp_fh set __slurp_fh fin
+  []
+  do
+    eof if break then
+    read append
+  loop
+  __slurp_fh close 
+  STDIN fin
+;
+
+#==========================================================================
+"Stk.." .
+
+# Duplicate the two topmost elements on the stack.
+: 2dup
+  depth 2 < if "2dup: Not enough elements on stack!\n" panic then
+  over over
+;
+
+# Remove all elements from stack.
+: clear
+  depth 0 > if depth compress drop then
+;
+
+# Generalized drop, TOS = depth.
+: ndrop
+  depth 1 < if "ndrop: Not enough elements on stack!\n" panic then
+  type 'S ne if "ndrop: TOS is not scalar!\n" panic then
+  compress drop
+;
+
+# Generalized over - it expects the position of the element to be picked
+# at the TOS.
+: pick
+  depth 1 < if "pick: Not enough elements on stack!\n" panic then
+  type 'S ne if "pick: TOS is not scalar!\n" panic then
+  compress swap dup rot rot 1 compress append expand drop
+;
+
+# Generalized rot, TOS = depth.
+: roll 1 _roll ;
+
+# rotate the topmost 3 elements
+: rot 3 1 _roll ;
+
+#==========================================================================
+"Struct.." .
+
+# Append a scalar or a vector to another vector.
+: append
+  depth 2 < if "append: Not enough elements on stack!\n" panic then
+  type 'S eq if 1 compress then
+  type 'A ne if "append: Not an array!\n" panic then
+  swap
+  expand dup 2 + roll
+  expand dup 2 + roll
+  + compress
+;
+
+# Deep reduce - this word will reduce a nested structure to a single scalar
+# regardless if its depth.
+: dreduce
+  over type 'A ne if "dreduce: TOS-1 is not an array!\n" panic then drop
+  swap collapse swap reduce
+;
+
+# Extract an element from an array (subscript and remove combined) - TOS
+# contains the element's number while TOS-1 contains the array.
+: extract
+  depth 2 < if "extract: Not enough elements on stack!\n" panic then
+  type 'S ne if "extract: TOS is not scalar!\n" panic then
+  over
+  type 'A ne if "extract: TOS-1 is not an array!\n" panic then drop
+  2dup 1 compress subscript rot rot remove swap expand drop
+;
+
+"\n" .

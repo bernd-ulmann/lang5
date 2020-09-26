@@ -1,0 +1,175 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+use File::Spec::Functions;
+use FindBin qw/$Bin/;
+use lib catfile($Bin, 'perl_modules');
+use Getopt::Long qw/:config require_order/;
+use Term::ReadLine;
+use Time::HiRes qw(gettimeofday tv_interval);
+
+use Data::Dumper;
+ $Data::Dumper::Varname = undef;
+ $Data::Dumper::Indent  = 1;
+
+use Lang5;
+
+our $VERSION = $Lang5::VERSION;
+
+$| = 1;
+
+sub execute {
+    my($fip, $lines, $out) = @_;
+
+    $fip->add_source_line($_)
+        for @$lines;
+
+    $fip->execute();
+
+    if ( $fip->error() ) {
+       print $out "Error: ";
+       print $out $fip->{_last_error} if $fip->{_last_error};
+       print $out "\nHistory: ";
+       print $out "$_ " for (@{$fip->{_exec_hist}});
+       print $out "\n";
+    }
+}
+
+my $term = ($^O eq 'MSWin32' or $^O eq 'VMS')
+         ? Term::ReadLine::Stub->new('5')
+         : Term::ReadLine->new('5');
+
+#my $OUT = $term->OUT || \*STDOUT;
+my $OUT = \*STDOUT;
+
+my %opt = qw/debug_level ERROR width 80/;
+GetOptions(
+    \%opt,
+    'debug_level=s',
+    'format=s',
+    'interactive',
+    'nolibs',
+    'statistics',
+    'benchmark',
+    'version',
+    'width=s',
+    'time',
+    'evaluate=s@',
+    'steps=s',
+) or usage(1);
+
+$opt{interactive} = 1 unless @ARGV;
+
+my $line_count = 0;
+
+my $fip = Lang5->new(
+    log_level      => $opt{debug_level},
+    number_format  => $opt{format},
+    steps          => $opt{steps},
+    text_callback  => sub {
+        $line_count += tr/\n/\n/ for @_;
+        print $OUT @_;
+    },
+    libdir         => "$Bin/lib",
+    libautoload    => !$opt{nolibs},
+);
+
+$SIG{INT} = sub {
+    print $OUT "CTRL-C pressed.\n";
+    $fip->set_break();
+};
+
+print $OUT "lang5 version $Lang5::VERSION\n" if $opt{version};
+
+my $start_time = [ gettimeofday() ];
+
+execute($fip, [ join(' ', @{ $opt{evaluate} }) ], $OUT)
+    if $opt{evaluate};
+
+exit if $fip->exit_called();
+
+if ( @ARGV ) {
+    for my $fn ( @ARGV ) {
+
+        print $OUT "loading $fn\n";
+
+        open(my $fh, '<', $fn)
+            or die "could not read from $fn, $!";
+        my @lines = <$fh>;
+        close($fh);
+
+        execute($fip, \@lines, $OUT);
+
+        last if $fip->error() or $fip->break_called();
+    }
+}
+
+if ( $opt{interactive} and !$opt{evaluate} ) {
+
+    while ( defined (my $line = $term->readline('lang5> ')) ) {
+
+        next unless $line =~ /\S/;
+
+        $term->addhistory($line) if $line =~ /\S/;
+
+        # keep track of number of output lines
+        my $last_line_count = $line_count;
+
+        # $line_count will eventually be incremented by the callback
+        my $t0 = [ gettimeofday() ];
+
+        execute($fip, [$line], $OUT);
+
+        # linefeed if needed
+        print $OUT "\n" if $last_line_count == $line_count;
+
+        printf $OUT "t: %.3fs\n", tv_interval($t0) if $opt{time};
+        print "\n" if $^O eq 'VMS';
+
+        last if $fip->exit_called();
+    }
+}
+
+if ( $opt{statistics} || $opt{benchmark}) {
+
+    print $OUT '=' x 79, "\nStatistics:\n", '-' x 79, "\n";
+
+    my $counter = 0;
+    my $stats   = $fip->statistics();
+
+    for my $key ( sort{ $opt{benchmark} ?
+                        $stats->{$b} <=> $stats->{$a} :
+                        $a cmp $b } keys %$stats ) {
+        printf $OUT "%-25s: %10d ! ", $key, $stats->{$key};
+        print $OUT "\n" if !(++$counter % 2);
+    }
+    print $OUT "\n" if $counter % 2;
+    print $OUT '-' x 79, "\n";
+}
+
+printf $OUT "Time consumed: %.3fs\n", tv_interval($start_time) if $opt{time};
+
+sub usage {
+    print <<"END";
+    usage:  $0 [-b] [-d <level>] [-e <source string>] [-f <format string>] [-i]
+               [-n] [-s] [-t] [-v] [-w <terminal width>] [file1 [file2 ...]]
+
+    params:
+        -b (--benchmark)    print statistics sorted by number of calls
+        -d (--debug_level)  set the debug level (default ERROR); valid values
+                            are TRACE, DEBUG, INFO, WARN, ERROR, FATAL
+        -e (--evaluate)     evaluate string as source code line; can occur
+                            multiple times
+        -f (--format)       default number format (sprintf format string)
+        -i (--interactive)  run in interactive mode; specified files will be
+                            run before entering interactive mode
+        -n (--nolibs)       skip autoloading 5's standard libraries
+        -s (--statistics)   print statistical information on program exit
+        -t (--time)         print time consumed after each execution
+        -v (--version)      display the version of the interpreter
+        -w (--width)        format output according to the terminal width
+END
+    exit($_[0]);
+}

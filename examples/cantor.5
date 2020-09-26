@@ -1,0 +1,9 @@
+: cantor
+  : iterate
+    : r(*) " " over 3 compress "" join ;
+    "" split r "" join
+  ;
+  'iterate swap reshape '- swap execute
+;
+
+4 cantor . "\n" .

@@ -1,0 +1,417 @@
+#
+#  mathlib.5 contains various word definitions to deal with sets,
+# statistics or to plot data.
+#
+#  This module makes use of the following dresses:
+#
+# (c)	Complex numbers
+# (m)	Matrix
+# (p)	Polar coordinates
+# (s)   Set
+# (v)	Vector
+
+"loading mathlib.5: " .
+
+#==========================================================================
+"Const.." .
+
+# Useful constants:
+: pi 1 1 atan2 4 * ;
+: e  1 exp ;
+: eps 1.e-10 ; # This is used in comparison operators etc.
+
+#==========================================================================
+"Basics.." .
+
+# Calculate the factorial.
+: !(*) iota 1 + '* reduce ;
+
+# Absolute value.
+: abs(*) dup 0 < if neg then ;
+
+#  Very straight-forward and non-clever implementation of the choose 
+# operator -- it expects n k (TOS) on the stack:
+: choose(*,*) 
+  2dup - 0 < if "choose: TOS must be <= TOS-1!\n" panic then
+  2dup - ! rot ! rot ! rot * / 
+;
+
+# Dual logarithm:
+: ld
+  ln 2 ln / 
+;
+
+# Brigg's logarithm:
+: lg
+  ln 10 ln / 
+;
+
+# Maximum of the two topmost stack elements:
+: max(*,*) 2dup - 0 < if swap then drop ; 
+
+# Minimum of the two topmost stack elements:
+: min(*,*) 2dup - 0 > if swap then drop ; 
+
+#==========================================================================
+"Set.." .
+
+# distinct removes all elements from a set which occur more than once. As a 
+# side effect the resulting distinct set will be sorted.
+: distinct(s)
+  strip
+  length 2 < if 's dress break then # Nothing to do for an empty set.
+  grade subscript                   # Sort the array representing the set.
+  dup dup
+  [-1] remove [undef] swap append   # Right shift the sorted array.
+  == not select                     # Determine the duplicates, negate the 
+                                    # resulting boolean vector and select 
+  's dress                          # the unique elements.
+;
+
+# Return the intersection of two sets. 
+# The result is a set without duplicates.
+: intersect(s,s) 
+  distinct strip swap distinct strip over in select 's dress 
+;
+
+# subset expects two sets on the stack and tests if the one on the TOS is
+# a subset of the one below it. In this case a 1 is left on the TOS, 
+# otherwise 0 is returned.
+: subset(s,s) strip swap strip swap in '&& reduce ;
+
+# Return the union of two sets without duplicates.
+: union(s,s) strip swap strip append 's dress distinct ;
+
+#==========================================================================
+"Stat.." .
+
+# Calculate arithmetic mean of the elements of a vector.
+: amean
+  depth 1 < if "amean: Stack is empty!\n" panic then
+  type 'A ne if "amean: TOS is not an array!\n" panic then
+  length 0 == if drop 0 break then
+  dup '+ reduce swap length swap drop /
+;
+
+# Compute the cubic mean of the elements of a vector:
+# ((x ** 3 + x ** 3 + ... + x     ** 3) / n) ** (1 / 3)
+#    0        1              n - 1
+: cmean
+  depth 1 < if "cmean: Stack is empty!\n" panic then
+  type 'A ne if "cmean: TOS is not an array!\n" panic then
+  length 0 == if drop 0 break then
+  3 hoelder
+;
+
+# Compute the Pearson correlation coefficient:
+: corr
+  depth 2 < if "corr: Not enought elements on stack!\n" panic then
+  type 'A ne if "corr: TOS is not an array!\n" panic then
+  length '_x_len set
+  swap
+  type 'A ne if "corr: TOS-1 is not an array!\n" panic then
+  length '_y_len set
+  _x_len _y_len != if "corr: Array lengths differ!\n" panic then
+
+  dup '+ reduce '_sy set
+  dup dup * '+ reduce '_sy2 set
+  swap
+  dup '+ reduce '_sx set
+  dup dup * '+ reduce '_sx2 set
+  * '+ reduce '_sxy set
+  _x_len _sxy * _sx _sy * -
+  _x_len _sx2 * _sx dup * - sqrt
+  _x_len _sy2 * _sy dup * - sqrt
+  * /
+;
+
+# Compute the geometric mean of the elements of a vector:
+# (x  * x  * ... * x     ) ** (1 / n)
+#   0    1          n - 1
+: gmean
+  depth 1 < if "gmean: Stack is empty!\n" panic then
+  type 'A ne if "gmean: TOS is not an array!\n" panic then
+  length 0 == if drop 0 break then
+  length swap '* reduce swap 1 swap / **
+;
+
+# Compute the harmonic mean of the elements of a vector:
+# n / (1 / x + 1 / x  + ... + 1 / x     )
+#           0       1              n - 1
+: hmean
+  depth 1 < if "hmean: Stack is empty!\n" panic then
+  type 'A ne if "hmean: TOS is not an array!\n" panic then
+  length 0 == if drop 0 break then
+  -1 hoelder
+;
+
+# Compute the hoelder mean of the elements of a vector:
+# ((x ** k + x ** k + ... + x     ** k) / n) ** (1 / k)
+#    0        1              n - 1
+: hoelder
+  depth 2 < 
+    if "hoelder: This word needs two words on the stack!\n" panic then
+  type 'S ne if "hoelder: TOS is no a scalar!\n"    panic then
+  swap type 'A ne if "hoelder: TOS-1 is not an array!\n" panic then swap
+  over length swap drop 0 == if drop drop 0 break then
+  swap length swap 2 pick ** '+ reduce swap / 1 rot / **
+;
+
+# Compute the median of the elements of a vector. The result is computed 
+# like this for a sorted vector:
+#                  / x            for an odd number of elements
+#                  !  (n + 1) / 2
+#       x       = <
+#        median    ! (x      + x         ) / 2 for an even number of elts
+#                  \   n / 2    n / 2 + 1
+#
+: median
+  depth 1 < if "median: Stack is empty!\n" panic then
+  type 'A ne if "median: TOS is not an array!\n" panic then
+  length 0 == if drop 0 break then
+  grade subscript  # Sort the vector elements.
+  length dup 2 %
+  0 == if              # The vector has an even number of elements.
+    2 / 2dup
+    1 - 1 compress subscript expand drop
+    rot rot
+    1 compress subscript expand drop
+    + 2 /
+  else                 # Odd number of vector elements.
+    1 + 2 / 1 - 1 compress subscript expand drop
+  then
+;
+
+# Compute the quadratic mean of the elements of a vector:
+# sqrt((x ** 2 + x ** 2 + ... + x     ** 2) / n)
+#        0        1              n - 1
+: qmean
+  depth 1 < if "qmean: Stack is empty!\n" panic then
+  type 'A ne if "qmean: TOS is not an array!\n" panic then
+  length 0 == if drop 0 break then
+  2 hoelder
+;
+
+# Compute the standard deviation for the values of a vector:
+#
+: stddev
+  length 1 - swap
+  dup amean - 2 ** '+ reduce 
+  swap / 
+  sqrt
+;
+
+#==========================================================================
+"Cplx.." . # Functionality for dealing with complex numbers.
+
+# Overload 'abs to return the absolute value of a complex number.
+: abs(c) 
+  strip 2 ** '+ reduce sqrt 
+;
+
+# Overload 'neg to perform the complement operation on a complex number.
+: neg(c)
+  strip [1 -1] * 'c dress
+;
+
+# Addition of two complex numbers.
+: +(c,c)
+  strip swap strip + 'c dress
+;
+
+# Subtraction of two complex numbers.
+: -(c,c)
+  strip swap strip swap - 'c dress
+;
+
+# Multiplication of two complex numbers.
+: *(c,c)
+  strip swap strip swap
+  [0 1 0 1] subscript swap [0 1 1 0] subscript
+  * expand drop
+  + rot rot - swap
+  2 compress 'c dress
+;
+
+# Division of two complex numbers.
+: /(c,c)
+  strip dup 2 ** '+ reduce
+  rot strip rot
+  [0 1 0 1] subscript swap [0 1 1 0] subscript
+  * reverse expand drop
+  + rot rot swap - 2 pick / rot rot swap / swap
+  2 compress 'c dress
+;
+
+# Return the real part of a complex number.
+: re(c)
+  strip expand drop drop
+;
+
+# Return the imaginary part of a complex number.
+: im(c)
+  strip expand drop swap drop
+;
+
+# Convert a complex number to a polar coordinate tuple.
+: polar(c)
+  strip dup
+  2 ** '+ reduce sqrt # This yields the radius.
+  swap
+  dup [0 0] == '&& reduce 
+    if "Can not convert zero cplx to polar!\n" panic then
+  expand drop atan2   # This yields phi.
+  2 compress 'p dress # Make a polar coordinate tuple.
+;
+
+# Convert a polar coordinate tuple to a complex number.
+: complex(p)
+  strip expand drop 2dup
+  cos * rot rot sin *
+  2 compress 'c dress
+;
+
+# Overload == for comparing complex numbers.
+: ==(c,c)
+  strip swap strip - abs eps < '&& reduce
+;
+
+# Overload != for comparing complex numbers.
+: !=(c,c)
+  strip swap strip - abs eps > '|| reduce
+;
+
+#==========================================================================
+"P.." .
+
+# Overload == for polar tuples.
+: ==(p,p)
+  strip swap strip - abs eps < '&& reduce
+;
+
+# Overload != for polar tuples.
+: !=(p,p)
+  strip swap strip - abs eps > '|| reduce
+;
+
+#==========================================================================
+"LA.." .
+
+# Overload * for matrix-vector-multiplication.
+: *(m,v)
+  # Calculate the inner sum of a vector:
+  : inner+(*) '+ reduce ;
+
+  swap strip shape rot strip swap reshape *
+  'inner+ apply
+  'v dress
+;
+
+: *(m,m) # Overload '* for matrix-matrix-multiplication
+  # If we multiply an n*m matrix (columns*rows) by an m*n matrix using the
+  # already existing matrix-vector-multiplication, we will need m copies of
+  # the first matrix. First of all, let us determine m (as a side effect, 
+  # this second matrix looses its matrix dress which will be useful soon):
+  strip shape [1] subscript expand drop
+
+  # Now we compress the first matrix into an array and reshape it so that
+  # this array will contain m copies of the original matrix:
+  rot 1 compress swap reshape
+
+  # Now swap the two arrays
+  swap
+
+  # To apply the already existing matrix-vector-multiplication to these two
+  # arrays we have to transpose the topmost two dimensional array and 
+  # transform it into a one dimensional array of vectors:
+  : a2v(*) 'v dress ;
+  strip 1 transpose 'a2v apply
+
+  # Now let us apply the existing matrix-vector-multiplication:
+  *
+
+  # Since this yields a one dimensional array of vectors, we have to strip
+  # the array elements and dress the array itself as being a matrix:
+  : v2a(v) strip ;
+  'v2a apply
+
+  # The result is still transposed, so perform another transposition and 
+  # dress it:
+  1 transpose 'm dress
+;
+
+# Create a identity matrix
+: idmatrix(*) iota dup '== outer 'm dress ;
+
+#==========================================================================
+"Graph.." .
+
+# array (the name reflects the fact that only the y-coordinates are fed
+# into gnuplot).
+# gplot plots a graph based on the elements of a single, one dimensional
+: gplot
+  # _gplot_write_data is a unary word to be used with apply to write the
+  # data to be plotted to the gnuplot scratch data file.
+  : _gplot_write_data(*) . ;
+
+  depth 1 < if "gplot: Stack is empty!\n" panic then
+  type 'A ne if "gplot: TOS is not an array!\n" panic then
+
+  "_5_gplot.data" '__gplot_data_name set
+  "_5_gplot.cmd"  '__gplot_cmd_name  set
+
+  '> __gplot_data_name open '__gplot_fh set
+  __gplot_fh fout
+  '_gplot_write_data apply drop
+  __gplot_fh close
+
+  '> __gplot_cmd_name open '__gplot_fh set
+  __gplot_fh fout
+  "set key off\n" .
+  "plot \"" __gplot_data_name "\" with lines\n" 3 compress "" join .
+  __gplot_fh close
+
+  STDOUT fout
+
+  'gnuplot __gplot_cmd_name 2 compress " " join system drop
+  __gplot_data_name unlink
+  __gplot_cmd_name  unlink
+;
+
+#==========================================================================
+"Trig.." .
+
+: tan dup sin swap cos / ;
+
+#==========================================================================
+"NT.." .
+
+# Places 1 on TOS if TOS was prime, 0 otherwise.
+: prime(*)
+  type 'S ne if "prime: TOS is not scalar!\n" panic then
+  dup 1 == if drop 0 then
+  dup 4 < if break then
+  dup sqrt 2 / int iota 1 + 2 * 1 + [2] swap append % '&& reduce
+;
+
+# Return the gcd of two integers
+: gcd(*,*)
+  do
+    2dup 0 > swap 0 > && not if break then
+    2dup <= if
+      over -
+    else
+      swap over - swap
+    then
+  loop
+  dup 0 == if drop else swap drop then
+;
+
+#  Convert a hexadecimal number to decimal. The hex-number is an 
+# upper-case # string.
+: h2d
+  uc "0123456789ABCDEF" "" split swap "" split length iota reverse 
+  16 swap ** rot rot index collapse * '+ reduce
+;
+
+"\n" .

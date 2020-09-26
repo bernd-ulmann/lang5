@@ -1,0 +1,464 @@
+% APL: Powerful vocabulary
+% 4th: Extensible language, simplest possible syntax :-)
+\documentclass{beamer}
+\usepackage{beamerthemesplit, eso-pic, graphics, german}
+\usetheme{VAXMAN}
+%
+\newcommand*{\NIX}{\vspace*{.3cm}\\}
+\newcommand*{\F}{{\tt\bf lang5}}
+%
+\title{\F}
+\author{Dr. Bernd Ulmann}
+\date{26-SEP-2020}
+%
+\begin{document}
+ \begin{frame}[containsverbatim]
+  \titlepage
+ \end{frame}
+%
+ \section{Introduction}
+  \begin{frame}
+   \frametitle{Introduction}
+   The following talk is about a new (rather eclectic) interpretive programming
+   language called \F{ } which is, in essence, the result of combining the
+   basic ideas and aspects of Forth and of APL.
+   \NIX
+   The idea of extending Forth is not new to say the least -- the most 
+   prominent example being HP's well known programming language RPL which
+   was for many years the work horse of their top-of-the-line pocket
+   calculators like the HP-28, the HP-48 etc.
+   \NIX
+   While RPL, short for \emph{Reverse Polish LISP},{~} combines Forth's stack
+   approach to programming with typical list processing operations normally
+   to be found in the language LISP, the language described briefly in the
+   following is also based on Forth but extends it with the programming
+   paradigm of APL, Ken Iverson's brain child which is still unmatched when
+   it comes to elegance and compactness of code.
+  \end{frame}
+%
+  \begin{frame}
+   \frametitle{Why \F}
+   Why would one create yet another programming language? Aren't there
+   more than enough already? The main reasons for the development described
+   in the following are these:
+   \begin{itemize}
+    \item Writing compilers and interpreters is really interesting and gives
+     an insight into the design of programming languages which is hard to
+     achieve otherwise.
+    \item Both Forth and APL have features making them more or less unique
+     in the programming languages zoo, so both languages are definitely 
+     worth to be at least taken into account as the basis for new developments.
+    \item On the other hand, both languages have their deficiencies like 
+     the need for special characters in APL, the non-overloading of basic
+     arithmetic operators in Forth etc.
+    \item Languages based on array operations like APL might be an ideal tool
+     to phrase algorithms for vector processors and GPUs. It should be
+     worthwhile to think about a compiler generating CUDA-code from \F-programs.
+   \end{itemize}
+  \end{frame}
+%
+ \section{\F{ } at a glance}
+  \begin{frame}
+   \frametitle{\F{ } at a glance}
+   What are the main characteristics of \F?
+   \begin{itemize}
+    \item \F{ } is completely stack based, its builtin operations are called
+     \emph{built in words}{ } while user defined operations are 
+     just called \emph{words}.
+    \item The stack can hold entities of arbitrary structure as long as these
+     may be represented as nested arrays.
+    \item All built in words as well as user defined words operate on 
+     those arbitrary structures which can be placed on the stack. Thus
+     {\tt 2 3 + .} yields {\tt 5}{ } while 
+     {\tt [1 2] [3 4]{ } + .} yields {\tt [4 6]}.
+    \item During startup the \F-interpreter looks for a file named
+     {\tt stdlib.5} -- if one is present it will be loaded prior to loading
+     the program to be executed. This standard library contains \F-extensions
+     written in \F{ } (for example the words {\tt grot} and {\tt ggrot}).
+   \end{itemize}
+  \end{frame}
+%
+ \section{\F{ } implementation}
+  \begin{frame}[containsverbatim]
+   \frametitle{The implementation of \F}
+   The following slides give a short overview of the current implementation 
+   of \F.
+   \NIX
+   This implementation is neither complete nor stable enough to be called
+   production grade -- its main purpose is to serve as a proof of concept
+   of the language itself and its basic implementation concepts.
+   \NIX
+   The current \F-implementation is based on Perl which led to a very
+   rapid development of the interpreter which took, until now, only about two
+   man weeks.
+   \NIX
+   A typical \F-program could look like this:
+   \begin{verbatim}
+4 iota dup '* outer 
+dup 2 compress .
+   \end{verbatim}
+  \end{frame}
+%
+  \begin{frame}
+   \frametitle{Executing \F}
+   Such a \F-program is rather simple to scan, parse and execute:
+   \begin{itemize}
+    \item A \F-program is parsed by basically splitting its source on 
+     whitespace with some special provision for arrays. The basic entities of 
+     a \F-program are called \emph{tokens}.
+    \item Word definitions start with {\tt :}{ } and end with {\tt ;}. 
+     The start of a word definition has highest priority for the interpreter.
+    \item If no word is to be defined, \F{ } tries to execute a built in 
+     word of the name found in the current token.
+    \item If no matching word can be found \F{ } tries to execute a user
+     defined word named like the token read.
+    \item If no word is found, \F{ } checks if there is a variable with a 
+     matching name -- if it succeeds the contents of that variable will just be
+     pushed onto the stack.
+    \item If even this did not work the element just read will be pushed onto
+     the stack.
+   \end{itemize}
+  \end{frame}
+%
+  \begin{frame}
+   \frametitle{Scanning and parsing}
+   If there were no nested structures to be pushed onto the stack and no
+   {\tt if}-{\tt else}-constructions or loops, scanning and parsing
+   \F{ } would be really trivial.
+   \NIX
+   To handle nested data structures like {\tt [1 [2 3]{ } 4]} special treatment
+   of the tokens generated by splitting the source code at whitespaces
+   is needed since these tokens would look like 
+   {\tt [1}, {\tt [2}, {\tt 3]}{ } and {\tt 4]}{ }
+   which does not represent what the programmer intended.
+   \NIX
+   Therefore the raw program representation is subjected to a special step 
+   which gathers data of nested data structures and transforms
+   the example given above back to {\tt [1 [2 3] 4]} from the token stream.
+   \NIX
+   The same holds true for nested program structures like 
+   {\tt if}--{\tt else}--{\tt then}- and 
+   {\tt do}--{\tt loop}-structures
+   which are processed similarly and yield a nested program structure for
+   every controlled block.
+  \end{frame}
+%
+  \begin{frame}
+   \frametitle{Data structures}
+   Thus a \F-program is represented within the interpreter as a nested array
+   containing 
+   \begin{itemize}
+    \item an entry for every word to be executed,
+    \item an entry for each scalar used in the program,
+    \item an entry containing a reference to a nested array structure for
+     every such structure found in the \F{ } source code,
+    \item an entry containing a reference to a nested structure for every
+     {\tt if-else-then} or {\tt do-loop} controlled block.
+   \end{itemize}
+
+   The following example shows a simple \F-program consisting of two nested
+   loops and its internal representation in the interpreter.
+  \end{frame}
+%
+  \begin{frame}[containsverbatim]
+   \frametitle{Example structure}
+   {\small 
+    \begin{verbatim}
+0 do
+    100 do
+        dup .
+        1 +
+        dup 105 > if
+            break
+        then
+    loop
+    drop
+#
+    dup .
+    1 +
+    dup 5 > if
+        break
+    then
+loop
+drop
+    \end{verbatim}
+   }
+  \end{frame}
+%
+  \begin{frame}[containsverbatim]
+   \frametitle{Example structure}
+   The preceding program is then represented internally like this:
+   {\small 
+    \begin{verbatim}
+[ '0', 'do',
+  [ '100', 'do',
+    [ 'dup', '.', '1', '+', 'dup', '105', '>', 'if',
+      [ 'break' ]
+    ],
+    'drop', 'dup', '.', '1', '+', 'dup', '5', '>', 'if',
+    [ 'break' ]
+  ],
+  'drop'
+]
+    \end{verbatim}
+   }
+  \end{frame}
+%
+ \section{Language elements}
+  \begin{frame}[containsverbatim]
+   \frametitle{Language elements}
+   Currently the following words are implemented:
+   \NIX
+   \begin{description}
+    \item [Binary built in words:] 
+     \begin{verbatim}
++ - * / & | ^ > < == >= <= != <=> 
+% ** eq ne gt lt ge le
+     \end{verbatim}
+    \item [Unary built in words:]
+     \begin{verbatim}
+not neg ! sin cos ? int
+     \end{verbatim}
+    \item [Stack operations:]
+     \begin{verbatim}
+dup drop swap over rot depth
+     \end{verbatim}
+    \item [Array operations:]
+     \begin{verbatim}
+iota reduce remove outer in select 
+expand compress reverse
+     \end{verbatim}
+    \item [IO-operations:]
+     \begin{verbatim}
+. .s .v read
+     \end{verbatim}
+    \item [Variable operations:]
+     \begin{verbatim}
+set del
+     \end{verbatim}
+    \item [Control operations:]
+     \begin{verbatim}
+if else then do loop break exit
+     \end{verbatim}
+   \end{description}
+  \end{frame}
+%
+ \section{Examples}
+  \begin{frame}
+   \frametitle{Examples}
+   Although the \F-interpreter is far from being complete, some more or less
+   simple and actually working examples can already be shown:
+   \NIX
+   These examples include
+   \begin{itemize}
+    \item Some introductory programs, 
+    \item cosine approximation using MacLaurin series and 
+    \item the sieve of Eratosthenes.
+   \end{itemize}
+  \end{frame}
+%
+  \begin{frame}
+   \frametitle{Fibonacci numbers}
+   Recursion is such a powerful tool that not only the \F-interpreter itself
+   is highly recursive internally but the language \F{ } itself allows 
+   recursion as well.
+   \NIX
+   The following program computes the well known Fibonacci number sequence 
+   implementing the recursive definition
+   \begin{eqnarray}
+    f(0)&=&1\nonumber\\
+    f(1)&=&1\nonumber\\
+    f(n)&=&f(n-1)+f(n-2).\nonumber
+   \end{eqnarray}
+  \end{frame}
+%
+  \begin{frame}[containsverbatim]
+   \frametitle{Fibonacci numbers}
+   \begin{verbatim}
+: fib 
+    dup 2 <
+    if
+        drop 1
+    else
+        dup
+        1 - fib
+        swap 2 - fib
+        +
+    then
+;
+
+0 do
+    dup fib . 1 + 
+    dup 10 > if break then
+loop
+   \end{verbatim}
+  \end{frame}
+%
+  \begin{frame}[containsverbatim]
+   \frametitle{Throwing dice}
+   Throw a dice 100 times and calculate the arithmetic mean of the results:
+   \begin{verbatim}
+: throw_dice
+    100 dup iota undef ne 6 * 
+    ? int 1 + 
+    '+ reduce swap / .
+;
+   \end{verbatim}
+  \end{frame}
+%
+  \begin{frame}
+   \frametitle{Cosine approximation}
+   The following word computes the cosine of a value given in radians using 
+   the MacLaurin expansion
+   \begin{displaymath}
+    \cos x\approx\sum\limits_{i=0}^n (-1)^i \frac{x^{2i}}{(2i)!}
+   \end{displaymath}
+   with 9 terms.
+   \NIX
+   To accomplish this without an explicit loop three basic vectors representing
+   $(-1)^i$, $x^{2i}$ and $(2i)!$ are generated. Multiplying the first two and
+   dividing the result by the third one yields a vector which is then processed
+   by summing all of its elements using the {\tt reduce} operation.
+   \NIX
+   The following slide shows the complete word definition of {\tt mc\_cos}:
+  \end{frame}
+%
+  \begin{frame}[containsverbatim]
+   \frametitle{Cosine approximation}
+   {\small
+    \begin{verbatim}
+: mc_cos 
+    # Save x and the number of terms for future use
+    'x set 9 'terms set
+
+    # Generate a vector containing x ** (2 * i)
+    terms iota dup undef ne x * swap 2 * dup v2i set **
+
+    # Generate the (2 * i)! vector and 
+    # divide the previous vector by this
+    v2i ! /
+
+    # Generate a vector of the form [1 -1 1 -1 1 ...]
+    terms iota 1 + 2 % 2 * 1 -
+
+    # Multiply both vectors and reduce the result by '+'
+    * '+ reduce
+;
+    \end{verbatim}
+   }
+  \end{frame}
+%
+  \begin{frame}
+   \frametitle{List of primes}
+   The following program implements a form of the sieve of Eratosthenes
+   which is quite popular in the APL community. The basic ideas for 
+   generating a list of primes between 2 and a given value {\tt n} are these:
+   \begin{itemize}
+    \item Generate a vector {\tt [1, 2, 3, ..., n]}.
+    \item Drop the first vector element yielding {\tt [2, 3, 4, ..., n]}.
+    \item Compute the outer product of two such vectors yielding a matrix
+     like this:
+     \begin{displaymath}
+      \begin{pmatrix}
+       4&6&8&10&\dots\\
+       6&9&12&15&\dots\\
+       8&12&16&20&\dots\\
+       10&15&20&25&\dots\\
+       \vdots&\vdots&\vdots&\vdots&\ddots
+      \end{pmatrix}
+     \end{displaymath}
+   \end{itemize}
+  \end{frame}
+%
+  \begin{frame}
+   \frametitle{List of primes}
+   \begin{itemize}
+    \item Obviously this matrix contains everything but prime numbers, so 
+     the next step is to determine which number contained in the original
+     vector {\tt [2, 3, ..., n]} is \emph{not} contained in this matrix which
+     can be done using the set operation {\tt in}. 
+    \item The result of {\tt in}{~} is a vector with {\tt n-1} elements 
+     each being {\tt 0} (its corresponding vector element was not found in 
+     matrix and is thus not prime) or {\tt 1}.
+    \item After inverting this binary vector it can be used to select
+     all prime numbers from the initial vector {\tt [2, 3, ..., n]}.
+   \end{itemize}
+
+   This is accomplished by the following \F-program:
+  \end{frame}
+%
+  \begin{frame}[containsverbatim]
+   \frametitle{List of primes}
+   \begin{verbatim}
+: prime_list
+  iota 1 +
+  0 remove
+  dup dup dup
+  '* outer
+  swap in not
+  select
+;
+
+100 prime_list .
+   \end{verbatim}
+
+   This program yields the following output:
+   \begin{verbatim}
+[2 3 5 7 11 13 17 19 23 29 31 37 41 
+ 43 47 53 59 61 67 71 73 79 83 89 97 ]
+   \end{verbatim}
+  \end{frame}
+%
+ \section{Style}
+  \begin{frame}[containsverbatim]
+   \frametitle{Style}
+   Combining the power of Forth and APL, \F{ } requires a consistent 
+   programming style and rational factoring of words to ensure code
+   maintainability. 
+   \NIX
+   The cosine example from above could have been written also like this:
+   \begin{verbatim}
+: mc_cos 
+    'x set 9 'terms set
+    terms iota dup undef ne x * swap 2 * dup v2i set 
+    ** v2i ! / terms iota 1 + 2 % 2 * 1 - * '+ reduce
+;
+   \end{verbatim}
+
+   This code is not really what one would call maintainable compared with the
+   far better formatting and commenting shown in the original example.
+  \end{frame}
+%
+  \begin{frame}
+   \frametitle{Style}
+   All in all the following topics should be taken into account when programming
+   in \F:
+   \begin{itemize}
+    \item Use short word definitions.
+    \item Words should do only one thing.
+    \item Words should have no side effects.
+    \item Indentation of control and data structures is vital for readability.
+    \item Resist the temptation of using really clever programming trickery!
+     :-) (It is hard, but\dots)
+   \end{itemize}
+  \end{frame}
+%
+ \section{Miscellaneous}
+  \begin{frame}
+   \frametitle{Miscellaneous}
+   \begin{itemize}
+    \item Next steps: Add more (complex) words like rho etc.
+    \item The source code of the \F-interpreter is available upon request
+     and it is planned to setup a Source Forge project for \F.
+    \item The power of Perl for implementing interpreters and the like is
+     remarkable -- the complete \F-interpreter currently consists of 
+     only about 700 lines of code.
+    \item I would like to thank Mr. Thomas Kratz for the many hours of peer 
+     programming during the implementation of the current \F-interpreter.
+    \item The author can be reached at
+     \begin{center}
+      {\tt\bf ulmann@analogparadigm.com}
+     \end{center}
+   \end{itemize}
+  \end{frame}
+\end{document}

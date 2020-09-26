@@ -1,0 +1,25 @@
+: ulam_spiral
+  : seq
+    : zip(*,*) 2 compress " " join ;
+    : subsubseq swap 2 2 compress reshape ;
+    : subseq
+      0 pick     [0 1]  subsubseq 1 pick     [1 0]  subsubseq 
+      2 pick 1 + [0 -1] subsubseq 3 pick 1 + [-1 0] subsubseq 
+      5 roll drop append append append
+    ;
+
+    dup 2 reshape 1 compress
+    over iota 2 * 1 + "subseq append" 3 pick reshape zip execute
+    over 2 * [0 1] subsubseq append '+ spread
+  ;
+
+  : print_line(*)
+    : rpl(*) dup not if drop "" then ;
+    rpl "\t" join . "\n" .
+  ;
+
+  seq swap 2 * 1 + 2 ** iota 1 + dup prime swap and swap scatter
+  'print_line apply drop
+;
+
+4 ulam_spiral

@@ -1,0 +1,40 @@
+#
+# This is a 5-implementation of Conway's Game-of-Life.
+#
+#  The basic idea is to create eight matrices, based on the Game-of-Life matrix,
+# where a 1 denotes a living cell while a 0 denotes a dead cell. These eight 
+# matrices are the result of eight matrix rotations (left, right, up, down, 
+# upper left, upper right, lower left, lower right). These eight matrices are 
+# then summed to determine the number of neighbours of each cell. After that
+# the standard Game-of-Life-rules are applied to the original matrix and the
+# neighbour sum matrix to determine the new population.
+#
+: print_field # Pretty print the field of cells with a frame.
+  : print_line(*) [" " "*"] swap subscript "" join '! . . '! . "\n" . ;
+
+  dup shape expand drop swap drop 2 + '- swap reshape "" join dup . "\n" .
+  swap 'print_line apply drop . "\n" .
+;
+
+: iterate # Perform one Game-of-Life-iteration
+  : rule(*,*) swap if dup 2 >= swap 3 <= && else 3 == then ;
+
+  # Rotate the matrix in all eight directions and sum these eight matrices:
+  dup [1 0]   rotate swap
+  dup [-1 0]  rotate swap
+  dup [0 1]   rotate swap
+  dup [0 -1]  rotate swap
+  dup [1 1]   rotate swap
+  dup [-1 1]  rotate swap
+  dup [1 -1]  rotate swap
+  dup [-1 -1] rotate swap
+
+  9 -1 _roll + + + + + + + rule
+;
+
+#  Setup the start matrix - in this case it only contains a glider and we
+# generate it by some matrix operations:
+100 iota dup [34 45 55 54 53] swap in [10 10] reshape
+
+# Perform 100 iterations:
+"cls print_field iterate" 100 reshape execute

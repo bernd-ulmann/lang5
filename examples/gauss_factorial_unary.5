@@ -1,0 +1,5 @@
+# Define two unary words:
+: gauss(*)     iota 1 + '+ reduce ;
+: factorial(*) iota 1 + '* reduce ;
+
+10 iota dup gauss . factorial .

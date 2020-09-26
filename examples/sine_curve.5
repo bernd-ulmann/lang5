@@ -1,0 +1,9 @@
+# Generate a string consisting of n (from TOS) "-" and terminated 
+# by CR/LF.
+: print_dot(*) " " 1 compress swap reshape "*\n" append "" join . ;
+
+# Create a vector containing the width of the bargraph to be 
+# printed.
+21 iota 10 / 3.14159265 * sin 20 * 25 + int
+
+print_dot # Apply the word print_bar elementwise to this vector.

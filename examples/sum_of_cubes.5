@@ -1,0 +1,5 @@
+# Print all natural numbers < 1000 which are equal to the sum
+# of the cubes of their respective digits:
+
+: cube_sum(*) "" split 3 ** '+ reduce ;
+999 iota 1 + dup dup cube_sum == select .

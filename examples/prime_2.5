@@ -1,0 +1,16 @@
+: prime_list
+  dup 1 - iota 2 + 
+  swap 2 / int 1 - iota 2 + dup '* outer
+  over in not select
+;
+
+do
+  "Please enter a number between 2 and 100: " .  read
+  dup 2 < if
+    "\tToo small!\n" . drop
+  else
+    dup 100 > if "\tToo large!\n" . drop else break then
+  then
+loop
+
+prime_list "Output: " . .

@@ -1,4 +1,12 @@
+
+26-SEP-2020:
+------------
+/ The directory structure has been cleaned up, several small errors in the
+  test programs were resolved. The documentation has been updated and cleaned
+  up, the make_dist_kit.bash script has been revised.
+
 26-MAY-2013:
+------------
 / The introductory booklet has been revised, some (minor) faults have been 
   corrected and user input is now printed in red to distinguish it clearly from
   various system outputs.

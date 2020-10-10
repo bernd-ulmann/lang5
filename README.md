@@ -87,6 +87,69 @@ lang5> 1000 throw_dice .
 3.496
 ```
 
+A slighty more complicated example
+----------------------------------
+
+A slightly more complicated example would be the generation of a list of 
+primes. The basic idea is to use clever array manipulations instead of 
+loops and conditionals (this solution is pretty beautiful but not efficient
+at all! :-) ). Let us assume we want to generate a list of primes in the 
+interval [2,10]. First we will create a vector containing the values 2 to 10
+in one's increments. The operator `iota` generates an arithmetic progression 
+in a vector with as many elements as specified by the element on the top of
+the stack:
+```
+9 iota 2 + .
+[    2     3     4     5     6     7     8     9    10  ]
+```
+
+`9 iota` generates a vector `[0 1 2 3 4 5 6 7 8]` to which 2 is added in an 
+element wise fashion yielding the desired result. Duplicating this vector 
+and computing an outer product yields basically a multiplication table:
+```
+lang5> 9 iota 2 + dup '* outer .
+[
+  [    4     6     8    10    12    14    16    18    20  ]
+  [    6     9    12    15    18    21    24    27    30  ]
+  [    8    12    16    20    24    28    32    36    40  ]
+  [   10    15    20    25    30    35    40    45    50  ]
+  [   12    18    24    30    36    42    48    54    60  ]
+  [   14    21    28    35    42    49    56    63    70  ]
+  [   16    24    32    40    48    56    64    72    80  ]
+  [   18    27    36    45    54    63    72    81    90  ]
+  [   20    30    40    50    60    70    80    90   100  ]
+]
+```
+
+This table contains all multiples of the values in the interval [2,10],
+excluding the multiplier 1, i.e. this table only contains non-prime numbers
+(as every number is the product of at least two smaller integer numbers).
+So we now have to check which values of the original vector are not contained
+in this matrix (note the additional `dup` in the example!):
+```
+lang5> 9 iota 2 + dup dup '* outer swap in .
+[    0     0     1     0     1     0     1     1     1  ]
+```
+
+The resulting vector shows that the values 2, 3, 5, and 7 are not (!) elements
+of the matrix we just created, so these elements must be prime. We can thus
+invert this vector and use it to select all values from the original vector 
+(which is duplicated a third time for this) thus generating a vector containing
+all primes in the interval specified:
+```
+lang5> 9 iota 2 + dup dup dup '* outer swap in not select .
+[    2     3     5     7  ]
+```
+
+Starting with 99 instead of 9 yields a list of all primes in the interval 
+[2,100] (note that this requires a matrix of roughly 100 times 100 = 10000
+elements to be created temporarily, so this approach is by no means efficient,
+it is just charmingly elegant :-) ):
+```
+lang5> 99 iota 2 + dup dup dup '* outer swap in not select .
+[    2     3     5     7    11    13    17    19    23    29    31    37    41    43    47    53    59    61    67    71    73    79    83    89    97  ]
+```
+
 Change history
 ==============
 

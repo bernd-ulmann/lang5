@@ -1,3 +1,94 @@
+Lang5 - a stack oriented APL-like language
+==========================================
+
+What is Lang5?
+--------------
+
+Lang5 is a stack oriented programming language (if you are familiar with 
+Forth, you will feel instantly at home in Lang5) with many APL-like 
+features. Lang5 supports n-dimensional datastructures which can be easily
+manipulated on the stack following the APL programming paradigm.
+
+Platforms
+---------
+
+Lang5 has been written in Perl by Bernd Ulmann and Thomas Kratz and runs on
+all platforms with a decent Perl interpreter installed. 
+
+If you want to use the array processing features of Lang5 directly within 
+Perl programs, you might want to have a closer look at the Perl module
+[Array::APX](https://metacpan.org/pod/Array::APX).
+
+First steps:
+------------
+
+Lang5 can be installed by unpacking lang5.zip which contains all required
+modules etc. It is recommended to add the path to your local Lang5 installation
+to your PATH-variable so that Lang5 can be invoked without the necessity
+to specify an absolute or relative path. It can then be started by executing
+`lang5`:
+```
+lang5
+loading mathlib.5: Const..Basics..Set..Stat..Cplx..P..LA..Graph..Trig..NT..
+loading stdlib.5:  Const..Misc..Stk..Struct..
+lang5>
+```
+
+On startup the interpreter loads the modules found in the directory lib. As
+of now there are two modules, the mathematical library `mathlib.5` and the 
+standard library `stdlib.5`.
+
+For a simple introductory example (a detailed description of the language etc.
+can be found in [lang5_programming](doc/lang5_programming.pdf)) assume that 
+we want to simulate the outcome of throwing a six sided dice 10 times.
+
+We first create a vector containing 10 times the value 6 - the command `.` 
+prints the top element of the stack (removing it):
+```
+lang5> 6 10 reshape .
+[    6     6     6     6     6     6     6     6     6     6  ]
+```
+
+Applying the `?` operator to this vector replaces each vector element by a 
+pseudorandom number between 0 and 6 (excluding 6):
+```
+lang5> 6 10 reshape ? .
+[ 4.57888823093347  5.66943497823814  3.9537789693539  3.31383259974398  1.5666493855665  4.68637339529224  5.47878973919982  3.36891441444324  2.78258906253037  2.19838374189976  ]
+```
+
+Applying `int` will reduce each of these values to the nearest smaller integer 
+yielding a vector of 10 elements, each in the interval [0,5]. Adding 1 yields
+a vector of pseudorandom numbers in the interval [1,6]:
+```
+lang5> 6 10 reshape ? int 1 + .
+[    5     6     2     5     5     5     1     5     4     6  ]
+```
+
+We now have to sum these values and divide the result by 10 to get the average
+of this random experiment. Summing the values of a vector is done by means of
+the reduce operator which expects a vector and a binary operator, effectively
+applying the operator to each pair of successive vector elements:
+```
+lang5> 6 10 reshape ? int 1 + '+ reduce 10 / .
+3.3
+```
+
+We can now simplify things by defining a new word `throw_dice` which expects
+a scalar on the top of the stack which defined how often the dice should be 
+rolled:
+```
+: throw_dice 6 over reshape ? int 1 + '+ reduce swap / ;
+```
+
+This new word can now be used to simulate 1000 runs of throwing the dice as
+follows:
+```
+lang5> 1000 throw_dice .
+3.496
+```
+
+Change history
+==============
 
 26-SEP-2020:
 ------------

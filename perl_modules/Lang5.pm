@@ -280,7 +280,7 @@ my %builtin = (
         push => [qw/A/],
         ntrl => [],
         code => sub {
-            unless ($_[0]->{_steps}) # If _steps is set, we are a CGI-script and system calls are forbidden
+            unless ($_[0]->{steps}) # If steps is set, we are a CGI-script and system calls are forbidden
             {
                 $_[1] =~ s/^\"//;
                 $_[1] =~ s/\"$//;

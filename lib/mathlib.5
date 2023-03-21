@@ -344,7 +344,7 @@
 : idmatrix(*) iota dup '== outer 'm dress ;
 
 # Perform the scalar product of two vectors
-: *(v,v) * '+ reduce ;
+: *(v,v) strip swap strip * '+ reduce ;
 
 # Perform a tensor multiplication
 : x(v,v) '* outer 1 transpose collapse ;

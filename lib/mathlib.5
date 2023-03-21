@@ -343,8 +343,11 @@
 # Create a identity matrix
 : idmatrix(*) iota dup '== outer 'm dress ;
 
+# Perform the scalar product of two vectors
+: *(v,v) * '+ reduce ;
+
 # Perform a tensor multiplication
-: *(v,v) '* outer 1 transpose collapse ;
+: x(v,v) '* outer 1 transpose collapse ;
 #==========================================================================
 "Graph.." .
 
